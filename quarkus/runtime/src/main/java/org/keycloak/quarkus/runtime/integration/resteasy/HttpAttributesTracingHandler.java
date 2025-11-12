@@ -144,17 +144,9 @@ public final class HttpAttributesTracingHandler implements ServerRestHandler {
                         String body = bodyBuffer.toString(StandardCharsets.UTF_8);
                         logger.infof("Captured routing context body: length=%d", body.length());
 
-                        // Always set both attributes for consistency
+                        // Set both attributes without any truncation
                         span.setAttribute(TracingAttributes.HTTP_REQUEST_BODY_SIZE, (long) body.length());
-
-                        // Limit body size to avoid overwhelming spans (10KB limit)
-                        if (body.length() > 10240) {
-                            String truncatedBody = body.substring(0, 10240) + "... [truncated]";
-                            span.setAttribute(TracingAttributes.HTTP_REQUEST_BODY, truncatedBody);
-                            logger.infof("Body truncated from %d to %d chars", body.length(), truncatedBody.length());
-                        } else {
-                            span.setAttribute(TracingAttributes.HTTP_REQUEST_BODY, body);
-                        }
+                        span.setAttribute(TracingAttributes.HTTP_REQUEST_BODY, body);
                     } else {
                         logger.debug("Body buffer is null or empty");
                     }
