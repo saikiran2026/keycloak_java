@@ -38,6 +38,8 @@ import java.util.List;
 
 public final class KeycloakTracingCustomizer implements HandlerChainCustomizer {
 
+    private static final HttpAttributesTracingHandler HTTP_ATTRIBUTES_HANDLER = new HttpAttributesTracingHandler();
+
     private static class StartHandler implements ServerRestHandler {
         private final String className;
         private final String methodName;
@@ -91,6 +93,7 @@ public final class KeycloakTracingCustomizer implements HandlerChainCustomizer {
         switch (phase) {
             case BEFORE_METHOD_INVOKE:
                 handlers.add(new StartHandler(resourceClass.getClassName(), resourceMethod.getName()));
+                handlers.add(HTTP_ATTRIBUTES_HANDLER);
                 break;
             case AFTER_METHOD_INVOKE:
                 handlers.add(new EndHandler());
