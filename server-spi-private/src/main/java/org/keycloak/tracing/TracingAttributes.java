@@ -41,4 +41,12 @@ public interface TracingAttributes {
     AttributeKey<String> TOKEN_SID = AttributeKey.stringKey(KC_TOKEN_PREFIX + "sid");
     AttributeKey<String> TOKEN_ID = AttributeKey.stringKey(KC_TOKEN_PREFIX + "id");
 
+    // HTTP Request Attributes
+    AttributeKey<String> HTTP_REQUEST_METHOD = AttributeKey.stringKey("http.request.method");
+    AttributeKey<String> HTTP_REQUEST_PATH = AttributeKey.stringKey("http.request.path");
+    AttributeKey<String> HTTP_REQUEST_QUERY = AttributeKey.stringKey("http.request.query");
+    AttributeKey<String> HTTP_REQUEST_HEADERS = AttributeKey.stringKey("http.request.headers");
+    AttributeKey<String> HTTP_REQUEST_BODY = AttributeKey.stringKey("http.request.body");
+    AttributeKey<Long> HTTP_REQUEST_BODY_SIZE = AttributeKey.longKey("http.request.body.size");
+
 }
