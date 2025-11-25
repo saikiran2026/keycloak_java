@@ -1,0 +1,67 @@
+# =============================================================================
+# Docker Ignore File for Keycloak Build
+# Excludes files not needed for the Maven build to speed up Docker context
+# =============================================================================
+
+# Git
+.git
+.gitignore
+.gitattributes
+.github
+
+# IDE and editor files
+.idea
+*.iml
+.vscode
+.cursor
+*.swp
+*.swo
+*~
+
+# Build artifacts (we want fresh builds in Docker)
+**/target/
+!quarkus/dist/target/
+
+# Node modules (will be built fresh if needed)
+**/node_modules/
+
+# Documentation (not needed for build)
+*.md
+!README.md
+docs/documentation/
+
+# Test directories (exclude contents but keep pom.xml for Maven reactor)
+**/src/test/
+test-framework/**/src/
+tests/**/src/
+testsuite/**/src/
+
+# Docker files (prevent recursive copying)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Misc
+.DS_Store
+Thumbs.db
+*.log
+*.tmp
+*.bak
+
+# Security and config files that shouldn't be in image
+*.pem
+*.key
+*.crt
+.env
+.env.*
+
+# Downloaded archives
+*.tar.gz
+*.zip
+!src/**/*.zip
+
+# CI/CD configs
+.travis.yml
+Jenkinsfile
+.circleci/
+

@@ -1,6 +1,23 @@
+# =============================================================================
+# Keycloak Development Stack
+# Includes: PostgreSQL, Elasticsearch, Jaeger (tracing), and Keycloak
+# =============================================================================
+#
+# Usage:
+#   Build and start:     docker compose up --build -d
+#   Start only:          docker compose up -d
+#   View logs:           docker compose logs -f keycloak
+#   Stop:                docker compose down
+#   Clean volumes:       docker compose down -v
+#
+# =============================================================================
+
 services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ---------------------------------------------------------------------------
   postgres:
-    image: postgres:15
+    image: postgres:15-alpine
     container_name: keycloak-postgres
     environment:
       POSTGRES_DB: keycloak
@@ -11,48 +28,61 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keycloak"]
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     networks:
       - keycloak-network
+    restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # Elasticsearch (for Jaeger span storage)
+  # ---------------------------------------------------------------------------
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: keycloak-elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     ports:
       - "9200:9200"
       - "9300:9300"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
+      start_period: 60s
     networks:
       - keycloak-network
+    restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # Jaeger (Distributed Tracing)
+  # ---------------------------------------------------------------------------
   jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.52
     container_name: keycloak-jaeger
     command:
       - --span-storage.type=elasticsearch
       - --es.server-urls=http://elasticsearch:9200
+      - --es.num-shards=1
+      - --es.num-replicas=0
     environment:
-      - SPAN_STORAGE_TYPE=elasticsearch
-      - SPAN_STORAGE_ELASTICSEARCH_SERVER_URLS=http://elasticsearch:9200
-      - SPAN_STORAGE_ELASTICSEARCH_TAG_DOT_REPLACEMENT=_
+      COLLECTOR_OTLP_ENABLED: "true"
+      SPAN_STORAGE_TYPE: elasticsearch
     ports:
       - "16686:16686"  # Jaeger UI
       - "4317:4317"    # OTLP gRPC receiver
       - "4318:4318"    # OTLP HTTP receiver
       - "14268:14268"  # Jaeger collector HTTP
+      - "6831:6831/udp" # Jaeger thrift compact
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -61,10 +91,18 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
     networks:
       - keycloak-network
+    restart: unless-stopped
 
+  # ---------------------------------------------------------------------------
+  # Keycloak Server (built from source)
+  # ---------------------------------------------------------------------------
   keycloak:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: keycloak:local
     container_name: keycloak-server
     command:
@@ -78,36 +116,53 @@ services:
       - --http-enabled=true
       - --hostname-strict=false
       - --proxy-headers=xforwarded
-      - --bootstrap-admin-username=admin
-      - --bootstrap-admin-password=admin
+      - --health-enabled=true
+      - --metrics-enabled=true
+      - --bootstrap-admin-username=${KC_ADMIN_USERNAME:-admin}
+      - --bootstrap-admin-password=${KC_ADMIN_PASSWORD:-admin}
     environment:
-      - KC_ADMIN=admin
-      - KC_ADMIN_PASSWORD=admin
-      - POSTGRES_DB=keycloak
-      - POSTGRES_USER=keycloak
-      - POSTGRES_PASSWORD=keycloak
+      # Java options for container environment
+      JAVA_OPTS_APPEND: >-
+        -XX:+UseContainerSupport
+        -XX:MaxRAMPercentage=75.0
+        -Djava.awt.headless=true
+        -Dquarkus.otel.attribute.value.length.limit=0
+      # Keycloak environment
+      KC_LOG_LEVEL: INFO
+      # OpenTelemetry configuration - fix maxAttributeValueLength error
+      QUARKUS_OTEL_ATTRIBUTE_VALUE_LENGTH_LIMIT: 0
     ports:
-      - "8080:8080"
-      - "8443:8443"
+      - "8080:8080"   # HTTP
+      - "8443:8443"   # HTTPS
+      - "9001:9000"   # Management (mapped to 9001 to avoid conflict)
     depends_on:
       postgres:
         condition: service_healthy
       jaeger:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/health/ready || exit 1"]
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 && cat <&3 | grep -q '\"status\":\"UP\"'"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 60s
+      start_period: 120s
     networks:
       - keycloak-network
+    restart: unless-stopped
 
+# -----------------------------------------------------------------------------
+# Volumes
+# -----------------------------------------------------------------------------
 volumes:
   postgres_data:
+    driver: local
   elasticsearch_data:
+    driver: local
 
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
 networks:
   keycloak-network:
     driver: bridge
-
+    name: keycloak-network

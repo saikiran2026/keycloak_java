@@ -42,7 +42,7 @@
                     <configuration>
                         <nodeVersion>${node.version}</nodeVersion>
                         <pnpmVersion>${pnpm.version}</pnpmVersion>
-                        <installDirectory>${maven.multiModuleProjectDirectory}/js</installDirectory>
+                        <installDirectory>/tmp/js-node</installDirectory>
                         <pnpmInheritsProxyConfigFromMaven>false</pnpmInheritsProxyConfigFromMaven>
                     </configuration>
                 </plugin>
