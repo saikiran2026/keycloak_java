@@ -1,0 +1,19 @@
+# Runtime-only Dockerfile - expects pre-built distribution
+# Use build.sh to build locally and create the image
+FROM eclipse-temurin:21-jre-jammy
+
+# Copy pre-built distribution from build context
+COPY quarkus/dist/target/keycloak-*.tar.gz /tmp/
+
+RUN tar -xzf /tmp/keycloak-*.tar.gz -C /opt && \
+    mv /opt/keycloak-* /opt/keycloak && \
+    rm /tmp/*.tar.gz && \
+    useradd -r keycloak && \
+    chown -R keycloak:keycloak /opt/keycloak
+
+USER keycloak
+WORKDIR /opt/keycloak
+EXPOSE 8080 8443 9000
+ENTRYPOINT ["/opt/keycloak/bin/kc.sh"]
+CMD ["start-dev"]
+

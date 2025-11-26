@@ -12,6 +12,13 @@ RUN apt-get update && \
 WORKDIR /build
 COPY . .
 
+# Set Maven memory limits to prevent OOM during build
+# Use conservative settings for 4GB RAM machine
+ENV MAVEN_OPTS="-Xmx1024m -XX:MaxMetaspaceSize=512m -XX:+UseContainerSupport"
+
+# Copy Maven settings if available (for repository configuration)
+COPY maven-settings.xml /root/.m2/settings.xml 2>/dev/null || true
+
 # Build server distribution
 # The frontend-maven-plugin will install node/pnpm to /tmp/js-node (configured in js/pom.xml)
 # /tmp supports symlinks in Docker, avoiding the overlay filesystem issue
