@@ -79,7 +79,7 @@ public class OTelTracingProvider implements TracingProvider {
     @Override
     public void endSpan() {
         if (scopes.isEmpty()) {
-            log.info("All spans during tracing already ended. Verify that 'TracingProvider.endSpan()' method was not executed multiple times in the span hierarchy.");
+            log.debug("All spans during tracing already ended. Verify that 'TracingProvider.endSpan()' method was not executed multiple times in the span hierarchy.");
             return;
         }
 

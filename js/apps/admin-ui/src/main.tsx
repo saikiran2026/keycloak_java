@@ -1,6 +1,7 @@
 import "@patternfly/patternfly/patternfly-addons.css";
 import "@patternfly/react-core/dist/styles/base.css";
 
+import { patchFetchForTelemetry } from '@keycloak/keycloak-ui-shared';
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createHashRouter, RouterProvider } from "react-router-dom";
@@ -8,6 +9,9 @@ import { i18n } from "./i18n/i18n";
 import { RootRoute } from "./routes";
 
 import "./index.css";
+
+// Initialize telemetry (W3C Baggage)
+patchFetchForTelemetry();
 
 // Initialize required components before rendering app.
 await i18n.init();
