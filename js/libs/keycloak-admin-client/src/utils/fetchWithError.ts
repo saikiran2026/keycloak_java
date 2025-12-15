@@ -13,11 +13,38 @@ export class NetworkError extends Error {
   }
 }
 
+// Global variable to store the latest traceparent from the backend
+let currentTraceparent: string | null = null;
+
 export async function fetchWithError(
   input: Request | string | URL,
   init?: RequestInit,
 ) {
+  // 1. Inject traceparent header if available
+  if (currentTraceparent) {
+    if (!init) {
+      init = {};
+    }
+    if (!init.headers) {
+      init.headers = {};
+    }
+
+    if (init.headers instanceof Headers) {
+      init.headers.set("traceparent", currentTraceparent);
+    } else if (Array.isArray(init.headers)) {
+      init.headers.push(["traceparent", currentTraceparent]);
+    } else {
+      (init.headers as Record<string, string>)["traceparent"] = currentTraceparent;
+    }
+  }
+
   const response = await fetch(input, init);
+
+  // 2. Capture new traceparent header from response
+  const newTraceparent = response.headers.get("traceparent");
+  if (newTraceparent) {
+    currentTraceparent = newTraceparent;
+  }
 
   if (!response.ok) {
     const responseData = await parseResponse(response);

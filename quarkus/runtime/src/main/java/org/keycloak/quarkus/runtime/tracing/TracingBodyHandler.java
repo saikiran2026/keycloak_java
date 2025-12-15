@@ -4,8 +4,25 @@ import io.opentelemetry.api.trace.Span;
 import jakarta.annotation.Priority;
 import jakarta.ws.rs.Priorities;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.container.ContainerRequestContext;
+import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.container.ContainerResponseContext;
 import jakarta.ws.rs.container.ContainerResponseFilter;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.MultivaluedMap;
+import jakarta.ws.rs.ext.Provider;
+import jakarta.ws.rs.ext.ReaderInterceptor;
+import jakarta.ws.rs.ext.ReaderInterceptorContext;
+import jakarta.ws.rs.ext.WriterInterceptor;
+import jakarta.ws.rs.ext.WriterInterceptorContext;
+import org.jboss.logging.Logger;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 
 @Provider
 @Priority(Priorities.USER)
@@ -51,6 +68,16 @@ public class TracingBodyHandler implements ContainerRequestFilter, ContainerResp
         if (pathParams != null && !pathParams.isEmpty()) {
             log.infof("TracingBodyHandler: capturing path params: %s", pathParams);
             span.setAttribute("http.request.path_params", pathParams.toString());
+        }
+
+        // Return traceparent to client to allow linking next request to this trace
+        if (span.getSpanContext().isValid()) {
+            String traceId = span.getSpanContext().getTraceId();
+            String spanId = span.getSpanContext().getSpanId();
+            String traceFlags = span.getSpanContext().getTraceFlags().asHex();
+            String traceparent = String.format("00-%s-%s-%s", traceId, spanId, traceFlags);
+            responseContext.getHeaders().add("traceparent", traceparent);
+            log.infof("TracingBodyHandler: returning traceparent: %s", traceparent);
         }
     }
 
